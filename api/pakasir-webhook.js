@@ -1,25 +1,20 @@
 import axios from "axios";
 
-// ================= CONFIG =================
-const BOT_TOKEN = process.env.BOT_TOKEN;
+// ================= HARD CODE CONFIG =================
+const BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN";
+const OWNER_ID = "8663287615";
 
-/**
- * MEMORY STORAGE (PRODUCTION NOTE)
- * - Ini in-memory (Map)
- * - Kalau restart Vercel akan reset
- * - Untuk production serius → ganti MongoDB / Redis
- */
+// ================= ORDER MAP =================
 const orderMap = new Map();
 
 /**
  * dipanggil dari bot saat checkout
- * saveOrder(orderId, { chatId, product })
  */
 export function saveOrder(orderId, data) {
   orderMap.set(orderId, data);
 }
 
-// ================= TELEGRAM HELPERS =================
+// ================= TELEGRAM =================
 async function sendMessage(chatId, text) {
   try {
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -28,7 +23,7 @@ async function sendMessage(chatId, text) {
       parse_mode: "HTML"
     });
   } catch (err) {
-    console.log("Telegram send error:", err.message);
+    console.log("Telegram error:", err.message);
   }
 }
 
@@ -40,98 +35,80 @@ async function sendFile(chatId, fileUrl, caption = "") {
       caption
     });
   } catch (err) {
-    console.log("Send file error:", err.message);
+    console.log("File error:", err.message);
   }
 }
 
-// ================= WEBHOOK HANDLER =================
+// ================= WEBHOOK =================
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(200).json({
       success: false,
-      message: "Only POST allowed"
+      message: "POST only"
     });
   }
 
   try {
-    const body = req.body;
+    const { order_id, status, amount } = req.body;
 
-    const orderId = body?.order_id;
-    const status = body?.status;
-    const amount = body?.amount || 0;
-
-    if (!orderId) {
+    if (!order_id) {
       return res.status(400).json({
         success: false,
-        message: "order_id missing"
+        message: "order_id required"
       });
     }
 
-    // ================= FIND ORDER =================
-    const orderData = orderMap.get(orderId);
+    const data = orderMap.get(order_id);
 
     // ================= PAID =================
     if (status === "PAID") {
-      if (orderData) {
+      if (data) {
         await sendMessage(
-          orderData.chatId,
+          data.chatId,
           `✅ <b>PAYMENT SUCCESS</b>\n\n` +
-          `📦 Produk: ${orderData.product.title}\n` +
-          `🧾 Order: ${orderId}\n` +
+          `📦 Produk: ${data.product.title}\n` +
+          `🧾 Order: ${order_id}\n` +
           `💰 Amount: Rp${amount}\n\n` +
-          `🚀 Auto delivery sedang diproses...`
+          `🚀 Auto delivery aktif`
         );
 
-        // ================= AUTO DELIVERY =================
-        if (orderData.product?.fileUrl) {
+        if (data.product?.fileUrl) {
           await sendFile(
-            orderData.chatId,
-            orderData.product.fileUrl,
-            `📦 Produk kamu: ${orderData.product.title}`
-          );
-        } else {
-          await sendMessage(
-            orderData.chatId,
-            `📦 Produk aktif!\nSilakan cek fitur yang kamu beli.`
+            data.chatId,
+            data.product.fileUrl,
+            "📦 File Produk"
           );
         }
 
-        // cleanup
-        orderMap.delete(orderId);
-      } else {
-        // fallback jika data tidak ditemukan
-        await sendMessage(
-          process.env.OWNER_ID,
-          `⚠️ PAYMENT PAID tapi order tidak ditemukan:\n${orderId}`
-        );
+        orderMap.delete(order_id);
       }
     }
 
     // ================= PENDING =================
     else if (status === "PENDING") {
-      if (orderData) {
+      if (data) {
         await sendMessage(
-          orderData.chatId,
-          `⏳ <b>PAYMENT PENDING</b>\n\nOrder: ${orderId}\nSilakan selesaikan pembayaran.`
+          data.chatId,
+          `⏳ Payment Pending\nOrder: ${order_id}`
         );
       }
     }
 
     // ================= EXPIRED =================
     else if (status === "EXPIRED") {
-      if (orderData) {
+      if (data) {
         await sendMessage(
-          orderData.chatId,
-          `❌ <b>PAYMENT EXPIRED</b>\n\nOrder: ${orderId}\nSilakan buat transaksi ulang.`
+          data.chatId,
+          `❌ Payment Expired\nOrder: ${order_id}`
         );
 
-        orderMap.delete(orderId);
+        orderMap.delete(order_id);
       }
     }
 
     return res.status(200).json({
       success: true,
-      message: "Webhook processed"
+      message: "OK"
     });
 
   } catch (err) {
@@ -139,7 +116,7 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "error"
     });
   }
 }
