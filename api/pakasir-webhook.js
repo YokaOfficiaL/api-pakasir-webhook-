@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // ================= HARD CODE CONFIG =================
-const BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN";
+const BOT_TOKEN = "8652092863:AAGNAI0Nr76Z07kSp2uryZ6vc1Hhdsbl0wo";
 const OWNER_ID = "8663287615";
 
 // ================= ORDER MAP =================
