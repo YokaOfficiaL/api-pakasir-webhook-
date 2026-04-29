@@ -1,20 +1,21 @@
 import axios from "axios";
 
-// ================= HARD CODE CONFIG =================
-const BOT_TOKEN = "8652092863:AAGNAI0Nr76Z07kSp2uryZ6vc1Hhdsbl0wo";
+// ================= CONFIG (NO ENV VERSION) =================
+const BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN";
 const OWNER_ID = "8663287615";
 
-// ================= ORDER MAP =================
+// ================= MEMORY ORDER STORAGE =================
 const orderMap = new Map();
 
 /**
- * dipanggil dari bot saat checkout
+ * DIPANGGIL DARI BOT SAAT CHECKOUT
  */
 export function saveOrder(orderId, data) {
   orderMap.set(orderId, data);
+  console.log("ORDER SAVED:", orderId, data);
 }
 
-// ================= TELEGRAM =================
+// ================= TELEGRAM HELPERS =================
 async function sendMessage(chatId, text) {
   try {
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -23,7 +24,7 @@ async function sendMessage(chatId, text) {
       parse_mode: "HTML"
     });
   } catch (err) {
-    console.log("Telegram error:", err.message);
+    console.log("Telegram Error:", err.message);
   }
 }
 
@@ -35,16 +36,20 @@ async function sendFile(chatId, fileUrl, caption = "") {
       caption
     });
   } catch (err) {
-    console.log("File error:", err.message);
+    console.log("Send File Error:", err.message);
   }
 }
 
 // ================= WEBHOOK =================
 export default async function handler(req, res) {
+  console.log("WEBHOOK HIT:", req.method, req.body);
+
+  // ONLY POST
   if (req.method !== "POST") {
     return res.status(200).json({
-      success: false,
-      message: "POST only"
+      sukses: false,
+      pesan: "Hanya POST",
+      method: req.method
     });
   }
 
@@ -53,8 +58,8 @@ export default async function handler(req, res) {
 
     if (!order_id) {
       return res.status(400).json({
-        success: false,
-        message: "order_id required"
+        sukses: false,
+        pesan: "order_id wajib"
       });
     }
 
@@ -62,6 +67,9 @@ export default async function handler(req, res) {
 
     // ================= PAID =================
     if (status === "PAID") {
+      console.log("PAID DETECTED:", order_id);
+
+      // kalau user ketemu
       if (data) {
         await sendMessage(
           data.chatId,
@@ -69,18 +77,27 @@ export default async function handler(req, res) {
           `📦 Produk: ${data.product.title}\n` +
           `🧾 Order: ${order_id}\n` +
           `💰 Amount: Rp${amount}\n\n` +
-          `🚀 Auto delivery aktif`
+          `🚀 Auto delivery sedang diproses...`
         );
 
+        // auto delivery file (optional)
         if (data.product?.fileUrl) {
           await sendFile(
             data.chatId,
             data.product.fileUrl,
-            "📦 File Produk"
+            `📦 ${data.product.title}`
           );
         }
 
         orderMap.delete(order_id);
+      }
+
+      // fallback kalau mapping hilang
+      else {
+        await sendMessage(
+          OWNER_ID,
+          `⚠️ PAID TAPI USER TIDAK DITEMUKAN\nOrder: ${order_id}`
+        );
       }
     }
 
@@ -89,7 +106,7 @@ export default async function handler(req, res) {
       if (data) {
         await sendMessage(
           data.chatId,
-          `⏳ Payment Pending\nOrder: ${order_id}`
+          `⏳ <b>PAYMENT PENDING</b>\n\nOrder: ${order_id}`
         );
       }
     }
@@ -99,24 +116,30 @@ export default async function handler(req, res) {
       if (data) {
         await sendMessage(
           data.chatId,
-          `❌ Payment Expired\nOrder: ${order_id}`
+          `❌ <b>PAYMENT EXPIRED</b>\n\nOrder: ${order_id}`
         );
 
         orderMap.delete(order_id);
       }
     }
 
+    // ================= RESPONSE =================
     return res.status(200).json({
-      success: true,
-      message: "OK"
+      sukses: true,
+      pesan: "Webhook processed",
+      data: {
+        order_id,
+        status,
+        amount
+      }
     });
 
   } catch (err) {
-    console.log("Webhook Error:", err.message);
+    console.log("WEBHOOK ERROR:", err.message);
 
     return res.status(500).json({
-      success: false,
-      message: "error"
+      sukses: false,
+      pesan: "server error"
     });
   }
-}
+            }
