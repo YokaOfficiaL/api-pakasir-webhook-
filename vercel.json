@@ -1,14 +1,15 @@
 {
   "version": 2,
-  "functions": {
-    "api/pakasir-webhook.js": {
-      "runtime": "nodejs18.x"
+  "builds": [
+    {
+      "src": "api/pakasir-webhook.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/api/pakasir-webhook",
-      "dest": "/api/pakasir-webhook.js"
+      "dest": "api/pakasir-webhook.js"
     }
   ]
 }
