@@ -1,0 +1,12 @@
+{
+  "name": "yoka-pakasir-webhook",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "api/pakasir-webhook.js",
+  "scripts": {
+    "start": "node api/pakasir-webhook.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9"
+  }
+}
